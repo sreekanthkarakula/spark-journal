@@ -1,0 +1,21 @@
+ def sendToKafka(stream: DStream[String], kafkaOutputTopic: String, kafkaBrokers: String): Any = {
+    stream.foreachRDD(rdd => sendToKafka(rdd, kafkaOutputTopic, kafkaBrokers))
+  }
+
+  def sendToKafka(recordRDD: RDD[String], kafkaOutputTopic: String, kafkaBrokers: String): Unit = {
+    recordRDD.foreachPartition(partition => {
+      val props = new util.HashMap[String, Object]()
+      props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaBrokers)
+      props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringSerializer")
+      props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+        "org.apache.kafka.common.serialization.StringSerializer")
+
+      val producer = new KafkaProducer[String, String](props)
+      partition.foreach((record: String) => {
+        val message = new ProducerRecord[String, String](kafkaOutputTopic, null, record)
+        producer.send(message)
+      })
+      producer.close()
+    })
+  }
